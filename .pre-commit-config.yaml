@@ -2,8 +2,13 @@ repos:
   - repo: https://github.com/pre-commit/pre-commit-hooks
     rev: v4.6.0
     hooks:
+      # --enforce-all 是必需的：
+      # 该 hook 默认会与 `git diff --cached --diff-filter=A`（已暂存的新增文件）
+      # 求交集。CI 里 `pre-commit run --all-files` 是干净 checkout、无暂存内容，
+      # 交集为空 → 一个文件都不检查，却仍然打印 "Passed"。
+      # 没有 --enforce-all，本 hook 在 CI 中形同空转，>1MB 文件可被合入 main。
       - id: check-added-large-files
-        args: ["--maxkb=1024"]
+        args: ["--maxkb=1024", "--enforce-all"]
       - id: detect-private-key
       - id: end-of-file-fixer
       - id: trailing-whitespace
