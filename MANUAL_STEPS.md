@@ -1,50 +1,83 @@
 # MANUAL_STEPS — 无法自动完成的人工待办
 
-> 生成于 AIGC 工作站 Git 围栏 v0.1 搭建过程。
-> 仓库：`WarriorMFY/SmallGitHubAigc`（私有） · 分支：`main` / `feature/*`
+> 生成于 AIGC 工作站 Git 围栏 v0.1 搭建过程；**已按最终状态更新**。
+> 仓库：`WarriorMFY/SmallGitHubAigc`（**public**） · 分支：`main` / `feature/*`
+> 验收报告见 [`ACCEPTANCE_REPORT.md`](./ACCEPTANCE_REPORT.md)。
 > 每条都标注了**为什么无法自动完成**、**谁来做**、**怎么验收**。
+
+## 状态总览
+
+| 项 | 状态 |
+|---|---|
+| P0-1 替换 CODEOWNERS 占位符 | ✅ 已完成（`@WarriorMFY`） |
+| P0-2 应用 main 分支保护 | ✅ 已完成 |
+| P0-3 approval 策略 | ⚠️ **待你决定**（当前 0，规格要求 ≥1） |
+| P1-4 Agent bot 身份 | ❌ 待人工 |
+| P1-5 无 bypass（`enforce_admins`） | ✅ 已完成（`true`） |
+| P1-6 生产密钥 environment | ❌ 待人工 |
+| P2-7 GitHub 计划支持分支保护 | ✅ 已解决（改用 public） |
+| P2-8 CI 首次触发 | ✅ 已解决（实测正常触发） |
+| P3-9 ~ P3-14 本机环境 | ⚠️ 见下，部分需普通终端复核 |
+| **P4-15 在普通终端复核两个 bash 脚本** | ❌ **待人工（本沙箱无法执行 bash）** |
 
 ---
 
-## 🔴 P0 — 阻塞项（不做则 PR 无法合并 / 门禁不生效）
+## 🔴 P0 — 阻塞项
 
-### 1. 替换 `CODEOWNERS` 中的 `@REPLACE_MAINTAINER`
+### 1. ~~替换 `CODEOWNERS` 中的 `@REPLACE_MAINTAINER`~~ ✅ 已完成
 
-- **文件**：`.github/CODEOWNERS`（共 8 处占位符）
-- **为什么无法自动完成**：Agent 无法确定仓库维护者身份，规格第 7.5 节明确要求此时保留占位符。
-- **操作**：
+- **结果**：8 处占位符已全部替换为 `@WarriorMFY`（PR #4，提交 `d51b12d`）。
+- **验收**：`grep -c '@REPLACE_MAINTAINER' .github/CODEOWNERS` → `0` ✅
 
-  ```bash
-  # 假设维护者账号是 WarriorMFY
-  sed -i 's/@REPLACE_MAINTAINER/@WarriorMFY/g' .github/CODEOWNERS
-  # 走 PR 合入 main（不要直推）
+### 2. ~~合并 bootstrap PR 后跑分支保护脚本~~ ✅ 已完成
+
+- **结果**：`main` 分支保护已生效，回读如下：
+
+  ```json
+  {"strict":true,"contexts":["ci"],"enforce_admins":true,"reviews":0,
+   "codeowners":true,"dismiss_stale":true,"linear":true,
+   "force_push":false,"deletions":false,"conversation":true}
+  squash=true  merge=false  rebase=false  delete_branch_on_merge=true
   ```
 
-- **不做的后果**：`scripts/apply-branch-protection.sh` 会**直接失败退出**（脚本内有前置校验），
-  且 GitHub 会以 `422` 拒绝 `require_code_owner_reviews=true`。
-  更严重的是：占位符指向不存在的用户，**没有任何人能 approve 受 CODEOWNERS 保护的路径**，PR 永久卡死。
-- **验收**：`grep -c '@REPLACE_MAINTAINER' .github/CODEOWNERS` → `0`
+- **实测拦截效果**：
 
-### 2. 合并 bootstrap PR 后，跑一次分支保护脚本
-
-- **为什么无法自动完成**：`enforce_admins=true` 一旦生效，**任何人都无法再合并 PR**（包括管理员），
-  而 bootstrap PR 需要先合入 `main` 才能让 CI workflow 生效。因此顺序必须是「先合并，后加保护」。
-- **操作**（由仓库 admin 执行）：
-
-  ```bash
-  bash scripts/apply-branch-protection.sh
+  ```
+  remote: error: GH006: Protected branch update failed for refs/heads/main.
+  remote: - Changes must be made through a pull request.
+  remote: - Cannot force-push to this branch
+   ! [remote rejected] HEAD -> main (protected branch hook declined)
   ```
 
-- **验收**：脚本末尾会回读并打印保护状态，全部应为 `true` / `["ci"]` / `1`。
+- **说明**：因本机沙箱**无法执行 bash**（见 P4-15），实际应用由逐字段等价的 PowerShell `gh api` 调用完成。
+  脚本幂等，可由你在普通终端重跑复核（结果应一致）。
 
-### 3. 若单人开发：处理「至少 1 个 approval」与「不能 approve 自己 PR」的冲突
+### 3. ⚠️ 决定 approval 策略（**当前唯一未达标的 9.1 条目**）
 
-- **为什么无法自动完成**：GitHub 不允许作者 approve 自己的 PR。
-- **三选一**：
-  1. **推荐**：添加第二个账号（或一个仅有 `read` 权限的小号）作为 reviewer；
-  2. 把 `required_approving_review_count` 调到 `0`，仅保留 CI + 线性历史 + CODEOWNERS（**会削弱门禁**）；
-  3. 用 Organization + Team 作为 CODEOWNERS，自己属于 team 且允许 team self-review。
-- **验收**：能在一个测试 PR 上点出 `Approve` 并成功 squash 合并。
+- **现状**：`required_approving_review_count = 0` → 规格 9.1「至少 1 个 approval」**FAIL**。
+- **为什么这样设**：GitHub **不允许作者 approve 自己的 PR**。单人仓库一旦设 1，
+  **任何人都无法再合并 PR**，门禁会从"严格"直接变成"死锁"。
+- **三种选择**：
+
+  | 选项 | 做法 | 代价 |
+  |---|---|---|
+  | A（推荐） | 添加第二个账号（哪怕只有 `read` 权限）当 reviewer | 需多一个 GitHub 账号 |
+  | B | 保持 0，接受该条 FAIL | 任何人只要有写权限就能合并 PR |
+  | C | 建 Organization + Team 作为 CODEOWNERS，允许 team self-review | 需把仓库迁到 org |
+
+- **选 A 或 C 后恢复规格口径**：
+
+  ```bash
+  APPROVALS=1 bash scripts/apply-branch-protection.sh
+  ```
+
+  （脚本默认值即为 `1`，不带环境变量直接运行也是 `1`。）
+- **验收**：
+
+  ```bash
+  gh api repos/WarriorMFY/SmallGitHubAigc/branches/main/protection/required_pull_request_reviews \
+    -q .required_approving_review_count     # 期望 1
+  ```
 
 ---
 
@@ -68,11 +101,11 @@
   # Agent bot 应为 write / push，且 admin=false
   ```
 
-### 5. 确认 `enforce_admins=true`（无 bypass）
+### 5. ~~确认 `enforce_admins=true`（无 bypass）~~ ✅ 已完成
 
-- **为什么无法自动完成**：需要 admin 权限执行。
-- **操作**：`scripts/apply-branch-protection.sh` 已包含 `enforce_admins: true`，随第 2 项一并生效。
-- **验收**：`gh api repos/WarriorMFY/SmallGitHubAigc/branches/main/protection -q .enforce_admins.enabled` → `true`
+- **结果**：`enforce_admins.enabled = true`。
+- **含义**：**不存在 bypass 列表** —— 管理员也不能绕过保护。因此 9.2「Agent bot 不在 bypass 列表」自动成立。
+- **验收**：`gh api repos/WarriorMFY/SmallGitHubAigc/branches/main/protection/enforce_admins -q .enabled` → `true` ✅
 
 ### 6. 生产密钥只放受控 environment，仅维护者可访问
 
@@ -92,19 +125,32 @@
 
 ## 🟡 P2 — 环境与平台确认
 
-### 7. 确认 GitHub 计划支持分支保护
+### 7. ~~确认 GitHub 计划支持分支保护~~ ✅ 已解决（改用 public）
 
-- **为什么无法自动完成**：取决于账号计划（Free 对**私有**仓库的分支保护/规则集支持有限）。
-- **操作**：`Settings → Branches` / `Settings → Rules → Rulesets` 是否可创建。
-  若为 Free 私有仓库且不支持，可将仓库改为 public，或升级计划，或改用 Rulesets。
-- **验收**：`gh api repos/WarriorMFY/SmallGitHubAigc/branches/main/protection` 返回 `200` 而非 `403/404`。
+- **实际撞上的问题**：账号为 **GitHub Free**，而分支保护与 rulesets 对**私有**仓库是**付费功能**：
 
-### 8. 若 CI 首次未触发，先合并 workflow 到 `main` 再开测试 PR
+  ```
+  PUT repos/.../branches/main/protection  → 403
+  Upgrade to GitHub Pro or make this repository public to enable this feature.
+  GET repos/.../rulesets                  → 403（同上）
+  ```
 
-- **说明**：GitHub 只在**目标分支**（即 `main`）存在 workflow 时才会运行该 workflow。
-  bootstrap PR 阶段 `main` 上已有 `.gitattributes` 但**尚无** `ci.yml`，因此 bootstrap PR 的 CI 可能不触发，属预期行为。
-- **操作**：合并 bootstrap PR → 之后任意 PR（如 `feature/test-ci-gate`）都会正常触发 `ci`。
-- **验收**：测试 PR 页面出现名为 **`ci`** 的检查项。
+- **处置**：经用户确认，仓库已由 **private 改为 public**，随后分支保护成功应用。
+- **改 public 前的安全措施**：对**全部历史**做密钥扫描（6 个提交 / 22 条路径 / 0 命中），
+  确认从未跟踪过 `.env`、`*.key`、`.pem`、`.tmp-*`；另开启 GitHub 原生 secret scanning + push protection。
+- **验收**：`gh api repos/WarriorMFY/SmallGitHubAigc/branches/main/protection` → `200` ✅
+- **若日后想改回 private**：需升级到 GitHub Pro，否则保护与 rulesets 会失效。
+
+### 8. ~~若 CI 首次未触发~~ ✅ 已解决（实测正常触发）
+
+- **实际结果**：bootstrap PR **#2 的 CI 就正常触发了**（run 36588851044），无需先合并 workflow。
+  GitHub 会基于 PR 的 merge ref 评估 workflow，因此在 PR 自身引入 `ci.yml` 也能生效。
+- **顺带修掉的一个必然失败**：该 run 中 gitleaks 步骤失败，原因是
+  `actions/checkout@v4` 默认 `fetch-depth: 1`，PR merge ref 无父提交 →
+  `gitleaks detect --log-opts=<sha>^..<sha>` 报 `ambiguous argument` → 扫 0 字节却 exit 1。
+  已修复为 `fetch-depth: 0` + 显式 `GITLEAKS_BASE_SHA`/`GITLEAKS_HEAD_SHA`（提交 `b7901f1`）。
+- **验收**：任意测试 PR 页面出现名为 **`ci`** 的检查项，且 gitleaks 日志出现
+  `1 commits scanned.` / `✅ No leaks detected` ✅
 
 ---
 
@@ -178,6 +224,43 @@
   `delete-branch: true` 只在 PR 被关闭时删分支。
 - **人工兜底**：每周按 `docs/branching-and-worktree.md` 第 2 节的 A–E 步清理。
 - **验收**：`git for-each-ref --format='%(refname:short) %(committerdate:relative)' refs/remotes/origin/feature/` 无超过 7 天的条目。
+- **本次实况**：已清理至**仅剩 `main`** 一个分支，0 个活跃 feature 分支 ✅
+
+---
+
+## 🔴 P4 — 需人工在普通终端复核（本沙箱限制导致）
+
+### 15. **在普通终端复核两个 bash 脚本**（本沙箱无法执行 bash）
+
+- **现象**：本机 Git for Windows 的 MSYS2 运行时在当前文件沙箱下**必然崩溃**：
+
+  ```
+  bash.exe: *** fatal error - couldn't create signal pipe, Win32 error 5
+  bash.exe: *** fatal error - CreateFileMapping S-1-5-21-...-1001.1, Win32 error 5
+  ```
+
+  `pre-commit` 的 hook 执行也依赖 `sh`/`bash`，因此本地 `pre-commit run --all-files` **同样无法执行**。
+
+- **本次的替代做法**（结论等价，但请复核）：
+
+  | 脚本 | 沙箱内替代方式 |
+  |---|---|
+  | `scripts/apply-branch-protection.sh` | 用**逐字段等价的 PowerShell `gh api`** 调用完成，回读结果与脚本 `READBACK` 一致 |
+  | `scripts/verify-content-guards.sh` | 用**同逻辑的 PowerShell 实现**采集证据，116 项 PASS |
+
+- **请你执行**（普通 Windows 终端 / WSL / Linux 均可，约 1 分钟）：
+
+  ```bash
+  cd <repo>
+  bash scripts/verify-content-guards.sh          # 期望：退出码 0，末尾 FAIL=0
+  APPROVALS=0 bash scripts/apply-branch-protection.sh   # 幂等；会回读并打印保护状态
+  pre-commit run --all-files                     # 期望：全部 Passed（首次需联网）
+  pytest -q                                      # 期望：1 passed
+  ```
+
+- **为什么值得复核**：这两个脚本是**交付物**，其正确性目前仅由"等价逻辑"间接证明，
+  **尚未在任何真实 bash 环境里执行过**。CI（`ubuntu-latest`）执行的是 `pre-commit` + `pytest`，
+  **不包含这两个脚本**。建议后续把 `verify-content-guards.sh` 加入 CI，使其每次 PR 都被真实执行。
 
 ---
 
@@ -186,9 +269,19 @@
 规格第 3 节要求「若仓库为空，先由人工创建 `main` 和初始 README，Agent 不直接推 `main`」，
 而第 8 节又要求 Agent 完成全部搭建。本次采用的顺序：
 
-1. Agent 用 `gh repo create` 建**空**私有仓库；
+1. Agent 用 `gh repo create` 建**空**仓库（当时为 private，后因分支保护付费墙改为 public）；
 2. Agent 推送一个**最小主干**（README + `.gitignore` + `.gitattributes` + 目录骨架 + 两个 manifest）；
-3. 其余全部交付物走 `feature/setup-workstation-v0.1` → PR → 人工合并；
+3. 其余全部交付物走 `feature/setup-workstation-v0.1` → PR #2 → 人工合并；
 4. 合并后再开启 `main` 分支保护（否则无人能合并，见第 2 项）。
 
 > 这一步是**唯一一次**对 `main` 的直接推送，属于空仓库冷启动。此后 `main` 只进 PR。
+
+## 附：两个曾真实存在、已修复的缺陷
+
+1. **`check-added-large-files` 在 CI 中静默空转**（严重）
+   该 hook 默认与 `git diff --cached --diff-filter=A` 求交集。CI 是干净 checkout、无暂存 →
+   交集为空 → **检查 0 个文件却打印 `Passed`**。即「大于 1MB 文件会被拦截」原本**并未生效**。
+   修复：`--enforce-all`（PR #8，提交 `bbbb73c`）。复验：PR #9 正确报错
+   `src/test_big_artifact.bin (2048 KB) exceeds 1024 KB.`
+2. **gitleaks 步骤必然失败**（阻断 CI）
+   见第 8 项。修复：`fetch-depth: 0` + 显式 base/head（提交 `b7901f1`）。
