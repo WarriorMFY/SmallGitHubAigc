@@ -1,0 +1,16 @@
+# CODEOWNERS — 所有 main 合并路径的 review 归属
+#
+# ⚠️ 人工待办：把下面全部 @REPLACE_MAINTAINER 替换为真实维护者账号（或 @org/team）。
+#    未替换前，分支保护的 require_code_owner_reviews=true 会导致 PR 无法合并。
+#    详见 MANUAL_STEPS.md 第 1 项。
+
+*                           @REPLACE_MAINTAINER
+/main                       @REPLACE_MAINTAINER
+/.github                    @REPLACE_MAINTAINER
+/prompts                    @REPLACE_MAINTAINER
+/models                     @REPLACE_MAINTAINER
+/datasets                   @REPLACE_MAINTAINER
+
+# 评测与工作流同属 AIGC 门禁范围
+/evals                      @REPLACE_MAINTAINER
+/workflows                  @REPLACE_MAINTAINER
