@@ -7,12 +7,30 @@
 #
 # 前置：gh auth status 已认证，且当前账号对该仓库有 admin 权限。
 #
+# 可调项（环境变量）：
+#   BRANCH     目标分支，默认 main
+#   APPROVALS  必需 approval 数，默认 1（规格口径）
+#
+# 单人开发说明：GitHub 不允许作者 approve 自己的 PR，因此单人仓库必须用
+#   APPROVALS=0 bash scripts/apply-branch-protection.sh
+# 否则没有任何人能合并 PR。此时 CI + CODEOWNERS + 线性历史 + enforce_admins
+# 仍然生效，仅「至少 1 个 approval」这一条被放宽（见 MANUAL_STEPS.md 第 3 项）。
+#
 set -euo pipefail
 
 REPO="${1:-$(gh repo view --json nameWithOwner -q .nameWithOwner)}"
 BRANCH="${BRANCH:-main}"
+APPROVALS="${APPROVALS:-1}"
 
-echo "==> repo=${REPO} branch=${BRANCH}"
+if ! [[ "${APPROVALS}" =~ ^[0-9]+$ ]]; then
+  echo "[FAIL] APPROVALS 必须是 0-6 的整数，收到：${APPROVALS}" >&2
+  exit 4
+fi
+
+echo "==> repo=${REPO} branch=${BRANCH} approvals=${APPROVALS}"
+if [[ "${APPROVALS}" == "0" ]]; then
+  echo "    [WARN] APPROVALS=0：已放宽「至少 1 个 approval」，规格 9.1 该条将不满足。"
+fi
 
 # ---------------------------------------------------------------------------
 # 前置校验 1：CODEOWNERS 不能还留着占位符，否则 require_code_owner_reviews
@@ -47,19 +65,21 @@ fi
 #   - required_status_checks.strict=true          → 分支必须最新后 CI 通过
 #   - contexts=["ci"]                             → 必需状态检查名 ci
 #   - enforce_admins=true                         → 管理员也不能绕过（无 bypass）
-#   - required_pull_request_reviews              → 必须 PR + ≥1 approval
+#   - required_pull_request_reviews              → 必须 PR + ≥APPROVALS 个 approval
 #   - dismiss_stale_reviews=true                  → 新提交后旧 review 失效
 #   - require_code_owner_reviews=true             → CODEOWNERS 必须 review
 #   - required_linear_history=true                → 线性历史（squash/rebase）
 #   - allow_force_pushes=false / allow_deletions=false
 #   - required_conversation_resolution=true       → 会话必须解决
+#
+# 注意：下面的 heredoc 用 <<JSON（不加引号），以便展开 ${APPROVALS}。
 # ---------------------------------------------------------------------------
 echo "==> 应用分支保护"
 gh api \
   --method PUT \
   -H "Accept: application/vnd.github+json" \
   "repos/${REPO}/branches/${BRANCH}/protection" \
-  --input - <<'JSON'
+  --input - <<JSON
 {
   "required_status_checks": {
     "strict": true,
@@ -69,7 +89,7 @@ gh api \
   "required_pull_request_reviews": {
     "dismiss_stale_reviews": true,
     "require_code_owner_reviews": true,
-    "required_approving_review_count": 1
+    "required_approving_review_count": ${APPROVALS}
   },
   "restrictions": null,
   "required_linear_history": true,
