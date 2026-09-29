@@ -1,0 +1,37 @@
+name: ci
+
+on:
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+  pull-requests: read
+
+jobs:
+  check:
+    name: ci
+    runs-on: ubuntu-latest
+    steps:
+      # fetch-depth: 0 是必需的：gitleaks-action 会执行
+      #   git log <sha>^..<sha>
+      # 浅克隆下 PR 的 merge ref 没有父提交，会报
+      #   "ambiguous argument ... unknown revision" 并让整个 ci 检查变红。
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - run: pip install pre-commit pytest
+      - run: pre-commit run --all-files
+      - run: pytest -q
+      - uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # 显式给出扫描区间：浅克隆/merge ref 场景下更可靠
+          GITLEAKS_BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          GITLEAKS_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          # 本 workflow 只有 pull-requests: read，无法发评论，关闭该行为
+          GITLEAKS_ENABLE_COMMENTS: false
+          GITLEAKS_ENABLE_UPLOAD_ARTIFACT: true

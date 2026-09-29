@@ -1,0 +1,26 @@
+name: stale
+
+on:
+  schedule:
+    - cron: "0 0 * * *"
+  workflow_dispatch:
+
+permissions:
+  issues: write
+  pull-requests: write
+
+jobs:
+  stale:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/stale@v9
+        with:
+          days-before-pr-stale: 3
+          days-before-pr-close: 7
+          stale-pr-message: "该 feature 已过期，请 rebase 或关闭。"
+          close-pr-message: "超过 7 天无进展，自动关闭。请重新从 main 开分支。"
+          stale-pr-label: "stale"
+          exempt-pr-labels: "pinned,keep"
+          delete-branch: true
+          days-before-issue-stale: -1
+          days-before-issue-close: -1
