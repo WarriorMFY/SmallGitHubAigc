@@ -189,4 +189,12 @@ git branch -r --merged origin/main | grep 'origin/feature/' | \
 
 ## 9. 人工待办
 
-首次搭建完成后，仍有若干**无法自动完成**的事项（替换 CODEOWNERS 占位符、创建 Agent bot、配置生产密钥 environment 等），见 [`MANUAL_STEPS.md`](./MANUAL_STEPS.md)。
+首次搭建完成后，仍有若干**无法自动完成**的事项（创建 Agent bot、配置生产密钥 environment、决定 approval 策略等），见 [`MANUAL_STEPS.md`](./MANUAL_STEPS.md)。
+
+逐条验收结果（含每条证据命令与结论）见 [`ACCEPTANCE_REPORT.md`](./ACCEPTANCE_REPORT.md)。
+
+一键复核内容边界与门禁配置：
+
+```bash
+bash scripts/verify-content-guards.sh    # 退出码 0 表示全部通过
+```
