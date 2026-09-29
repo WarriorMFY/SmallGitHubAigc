@@ -111,6 +111,12 @@ if grep -q 'maxkb=1024' .pre-commit-config.yaml; then
   ok "大文件阈值为 --maxkb=1024"
 else bad "未设置 --maxkb=1024"; fi
 
+# 没有 --enforce-all，该 hook 会与「已暂存的新增文件」求交集；
+# CI 干净 checkout 下交集为空，hook 空转却显示 Passed。
+if grep -q -- '--enforce-all' .pre-commit-config.yaml; then
+  ok "大文件检查启用 --enforce-all（否则 CI 中空转）"
+else bad "check-added-large-files 缺少 --enforce-all，CI 中不会真正检查任何文件"; fi
+
 if grep -q 'detect-private-key' .pre-commit-config.yaml; then
   ok "启用 detect-private-key"
 else bad "缺少 detect-private-key"; fi
