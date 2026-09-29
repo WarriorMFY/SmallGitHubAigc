@@ -1,0 +1,37 @@
+# 文本文件统一以 LF 存储，保证 Linux CI 与本地一致
+* text=auto eol=lf
+
+# 模型权重：二进制
+*.pt binary
+*.pth binary
+*.safetensors binary
+*.bin binary
+*.ckpt binary
+*.onnx binary
+*.h5 binary
+*.gguf binary
+
+# 生成物 / 图像：二进制
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.webp binary
+*.gif binary
+*.mp4 binary
+*.wav binary
+*.mp3 binary
+
+# 数据集归档：二进制
+*.parquet binary
+*.arrow binary
+*.tar binary
+*.gz binary
+*.zip binary
+
+# 脚本：强制 LF，否则 Linux 下 shebang 会失效
+*.sh text eol=lf
+scripts/* text eol=lf
+
+# manifest 一律 LF
+*.yaml text eol=lf
+*.yml text eol=lf

@@ -1,0 +1,7 @@
+version: 1
+items: []
+# - name: example
+#   version: v1
+#   source: s3://bucket/path
+#   sha256: "..."
+#   license: "..."
